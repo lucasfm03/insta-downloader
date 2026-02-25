@@ -31,6 +31,13 @@ app.get('/proxy-thumb', (req, res) => {
 // Configurações para produção (Render, etc)
 const PORT = process.env.PORT || 10000;
 const DOWNLOAD_DIR = path.join(__dirname, 'downloads');
+const COOKIE_FILE = 'www.instagram.com_cookies.txt';
+
+// Se existir uma variável de ambiente com os cookies, cria o arquivo
+if (process.env.IG_COOKIES) {
+    console.log('Criando arquivo de cookies a partir da variável de ambiente IG_COOKIES...');
+    fs.writeFileSync(path.join(__dirname, COOKIE_FILE), process.env.IG_COOKIES);
+}
 
 if (!fs.existsSync(DOWNLOAD_DIR)) {
     fs.mkdirSync(DOWNLOAD_DIR, { recursive: true });
@@ -49,15 +56,14 @@ app.post('/download', (req, res) => {
     const filename = `insta_video_${id}.mp4`;
     const filepath = path.join(DOWNLOAD_DIR, filename);
 
-    // Nome do arquivo de cookies exatamente como está na aba 'Files' do seu Space
-    const cookieFile = 'www.instagram.com_cookies.txt';
-    const cookiePath = path.join(__dirname, cookieFile);
+    // Nome do arquivo de cookies definido globalmente
+    const cookiePath = path.join(__dirname, COOKIE_FILE);
 
     let cookieArg = '';
     if (fs.existsSync(cookiePath)) {
-        cookieArg = `--cookies "${cookieFile}"`;
+        cookieArg = `--cookies "${COOKIE_FILE}"`;
     } else {
-        console.warn(`Arquivo de cookies "${cookieFile}" não encontrado. O download pode falhar.`);
+        console.warn(`Arquivo de cookies "${COOKIE_FILE}" não encontrado. O download pode falhar.`);
     }
 
     // Comando yt-dlp atualizado com -4 para forçar IPv4 e evitar erros de hostname
