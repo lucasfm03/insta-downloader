@@ -28,14 +28,13 @@ app.get('/proxy-thumb', (req, res) => {
     });
 });
 
-const PORT = 3000;
-const DOWNLOAD_DIR = path.join(__dirname, 'downloads');
+// Configurações para Hugging Face / Produção
+const PORT = process.env.PORT || 7860;
+const DOWNLOAD_DIR = process.env.NODE_ENV === 'production' ? '/tmp/downloads' : path.join(__dirname, 'downloads');
 
 if (!fs.existsSync(DOWNLOAD_DIR)) {
-    fs.mkdirSync(DOWNLOAD_DIR);
+    fs.mkdirSync(DOWNLOAD_DIR, { recursive: true });
 }
-
-// A rota '/' agora servirá automaticamente o index.html da pasta public via express.static
 
 app.post('/download', (req, res) => {
     const { url } = req.body;
@@ -50,25 +49,35 @@ app.post('/download', (req, res) => {
     const filename = `insta_video_${id}.mp4`;
     const filepath = path.join(DOWNLOAD_DIR, filename);
 
-    // Usando yt-dlp para baixar o vídeo
-    const command = `yt-dlp -f mp4 -o "${filepath}" "${url}"`;
+    // Nome do arquivo de cookies exatamente como está na aba 'Files' do seu Space
+    const cookieFile = 'www.instagram.com_cookies.txt';
+
+    // Comando yt-dlp atualizado com -4 para forçar IPv4 e evitar erros de hostname
+    const command = `yt-dlp -4 --no-check-certificate --cookies "${cookieFile}" --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" -S "ext:mp4:m4a" --merge-output-format mp4 -o "${filepath}" "${url}"`;
 
     exec(command, (error, stdout, stderr) => {
         if (error) {
-            console.error(`Status de erro: ${error}`);
-            console.error(`Stderr: ${stderr}`);
-            return res.status(500).send('Erro ao baixar vídeo. Verifique o link e tente novamente.');
+            // Se o erro for apenas um aviso (contém WARNING), verificamos se o arquivo foi gerado mesmo assim
+            if (stderr.includes('WARNING') && fs.existsSync(filepath)) {
+                console.log('Aviso detectado, mas o arquivo foi gerado. Prosseguindo...');
+            } else {
+                console.error(`Status de erro: ${error}`);
+                console.error(`Stderr: ${stderr}`);
+                // Retorna o erro real ou a primeira linha para ajudar no debug
+                const lines = stderr.split('\n');
+                const realError = lines.find(l => l.includes('ERROR:')) || lines[0] || 'Erro desconhecido ao processar vídeo';
+                return res.status(500).send(`Erro no download: ${realError}`);
+            }
         }
 
         console.log(`Download concluído: ${filename}`);
 
-        // Verificando se o arquivo existe antes de enviar
         if (fs.existsSync(filepath)) {
             res.download(filepath, filename, (err) => {
                 if (err) {
                     console.error('Erro ao enviar o arquivo:', err);
                 }
-                // Remover o arquivo após o envio para não ocupar espaço
+                // Remover o arquivo após o envio
                 fs.unlink(filepath, (unlinkErr) => {
                     if (unlinkErr) console.error('Erro ao deletar arquivo temporário:', unlinkErr);
                 });
@@ -83,18 +92,17 @@ app.post('/preview', (req, res) => {
     const { url } = req.body;
     if (!url) return res.status(400).send('URL é obrigatória');
 
-    // yt-dlp -j --skip-download pre-visualiza os metadados
-    const command = `yt-dlp -j --skip-download "${url}"`;
+    const cookieFile = 'www.instagram.com_cookies.txt';
+    const command = `yt-dlp -4 -j --no-check-certificate --cookies "${cookieFile}" --skip-download "${url}"`;
 
     exec(command, (error, stdout, stderr) => {
         if (error) {
+            console.error(`Erro preview: ${stderr}`);
             return res.status(500).send('Erro ao buscar pré-visualização');
         }
 
         try {
             const metadata = JSON.parse(stdout);
-
-            // Tenta pegar a melhor thumbnail disponível
             let thumb = metadata.thumbnail;
             if (!thumb && metadata.thumbnails && metadata.thumbnails.length > 0) {
                 thumb = metadata.thumbnails[metadata.thumbnails.length - 1].url;
@@ -113,5 +121,5 @@ app.post('/preview', (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`Servidor rodando em http://localhost:${PORT}`);
+    console.log(`Servidor rodando na porta ${PORT}`);
 });
