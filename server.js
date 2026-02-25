@@ -28,9 +28,9 @@ app.get('/proxy-thumb', (req, res) => {
     });
 });
 
-// Configurações para Hugging Face / Produção
-const PORT = process.env.PORT || 7860;
-const DOWNLOAD_DIR = process.env.NODE_ENV === 'production' ? '/tmp/downloads' : path.join(__dirname, 'downloads');
+// Configurações para produção (Render, etc)
+const PORT = process.env.PORT || 10000;
+const DOWNLOAD_DIR = path.join(__dirname, 'downloads');
 
 if (!fs.existsSync(DOWNLOAD_DIR)) {
     fs.mkdirSync(DOWNLOAD_DIR, { recursive: true });
@@ -51,9 +51,17 @@ app.post('/download', (req, res) => {
 
     // Nome do arquivo de cookies exatamente como está na aba 'Files' do seu Space
     const cookieFile = 'www.instagram.com_cookies.txt';
+    const cookiePath = path.join(__dirname, cookieFile);
+
+    let cookieArg = '';
+    if (fs.existsSync(cookiePath)) {
+        cookieArg = `--cookies "${cookieFile}"`;
+    } else {
+        console.warn(`Arquivo de cookies "${cookieFile}" não encontrado. O download pode falhar.`);
+    }
 
     // Comando yt-dlp atualizado com -4 para forçar IPv4 e evitar erros de hostname
-    const command = `yt-dlp -4 --no-check-certificate --cookies "${cookieFile}" --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" -S "ext:mp4:m4a" --merge-output-format mp4 -o "${filepath}" "${url}"`;
+    const command = `yt-dlp -4 --no-check-certificate ${cookieArg} --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" -S "ext:mp4:m4a" --merge-output-format mp4 -o "${filepath}" "${url}"`;
 
     exec(command, (error, stdout, stderr) => {
         if (error) {
@@ -63,9 +71,15 @@ app.post('/download', (req, res) => {
             } else {
                 console.error(`Status de erro: ${error}`);
                 console.error(`Stderr: ${stderr}`);
-                // Retorna o erro real ou a primeira linha para ajudar no debug
-                const lines = stderr.split('\n');
-                const realError = lines.find(l => l.includes('ERROR:')) || lines[0] || 'Erro desconhecido ao processar vídeo';
+
+                let realError = 'Erro desconhecido ao processar vídeo';
+                if (stderr.includes('rate-limit reached') || stderr.includes('login required')) {
+                    realError = 'Instagram bloqueou o acesso. Certifique-se de que o arquivo "www.instagram.com_cookies.txt" está presente e atualizado.';
+                } else {
+                    const lines = stderr.split('\n');
+                    realError = lines.find(l => l.includes('ERROR:')) || lines[0] || realError;
+                }
+
                 return res.status(500).send(`Erro no download: ${realError}`);
             }
         }
@@ -93,12 +107,23 @@ app.post('/preview', (req, res) => {
     if (!url) return res.status(400).send('URL é obrigatória');
 
     const cookieFile = 'www.instagram.com_cookies.txt';
-    const command = `yt-dlp -4 -j --no-check-certificate --cookies "${cookieFile}" --skip-download "${url}"`;
+    const cookiePath = path.join(__dirname, cookieFile);
+
+    let cookieArg = '';
+    if (fs.existsSync(cookiePath)) {
+        cookieArg = `--cookies "${cookieFile}"`;
+    }
+
+    const command = `yt-dlp -4 -j --no-check-certificate ${cookieArg} --skip-download "${url}"`;
 
     exec(command, (error, stdout, stderr) => {
         if (error) {
             console.error(`Erro preview: ${stderr}`);
-            return res.status(500).send('Erro ao buscar pré-visualização');
+            let errorMsg = 'Erro ao buscar pré-visualização';
+            if (stderr.includes('rate-limit reached') || stderr.includes('login required')) {
+                errorMsg = 'Instagram bloqueou o acesso. Cookies necessários.';
+            }
+            return res.status(500).send(errorMsg);
         }
 
         try {

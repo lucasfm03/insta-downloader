@@ -1,4 +1,4 @@
-# Usa uma imagem mais completa para evitar erros de biblioteca
+# Usa uma imagem oficial do Node.js
 FROM node:20
 
 # Instala Python, FFmpeg e ferramentas necessárias
@@ -9,29 +9,28 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Instala o yt-dlp de forma oficial via pip
+# Instala o yt-dlp
 RUN pip3 install --no-cache-dir yt-dlp --break-system-packages
 
 # Define a pasta de trabalho
 WORKDIR /app
 
-# Garante que as permissões estejam corretas para o usuário do Hugging Face (ID 1000)
-RUN chown -R 1000:1000 /app
-USER 1000
-
-# Copia os arquivos de configuração primeiro (para agilizar o build)
-COPY --chown=1000 package*.json ./
+# Copia os arquivos de configuração primeiro
+COPY package*.json ./
 RUN npm install --production
 
 # Copia o restante dos arquivos do projeto
-COPY --chown=1000 . .
+COPY . .
+
+# Garante que a pasta de downloads exista e tenha permissões
+RUN mkdir -p downloads && chmod 777 downloads
 
 # Configurações de ambiente
 ENV NODE_ENV=production
-ENV PORT=7860
+ENV PORT=10000
 
-# Porta obrigatória do Hugging Face
-EXPOSE 7860
+# Porta padrão do Render (embora ele costume injetar via variável de ambiente)
+EXPOSE 10000
 
 # Comando para iniciar
 CMD ["node", "server.js"]
