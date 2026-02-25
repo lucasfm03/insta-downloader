@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lucas Miranda InstaDownloader</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body>
+    <div class="blob-container">
+        <div class="blob"></div>
+        <div class="blob"></div>
+        <div class="blob"></div>
+    </div>
+
+    <main class="container">
+        <header>
+            <div class="logo-icon">
+                LM
+            </div>
+            <h1>Lucas Miranda <span>InstaDownloader</span></h1>
+            <p>Baixe seus vídeos favoritos em alta qualidade instantaneamente.</p>
+        </header>
+
+        <section class="download-section">
+            <form id="downloadForm" class="input-group">
+                <div class="input-wrapper">
+                    <i class="fas fa-link"></i>
+                    <input type="url" id="videoUrl" name="url" placeholder="Cole o link do vídeo aqui..." required>
+                </div>
+                <button type="submit" id="downloadBtn">
+                    <span class="btn-text">Baixar Vídeo</span>
+                    <span class="btn-loader" style="display: none;">
+                        <i class="fas fa-spinner fa-spin"></i> Processando...
+                    </span>
+                </button>
+            </form>
+            <div id="statusMessage" class="status-message"></div>
+
+            <div id="previewContainer" class="preview-container" style="display: none;">
+                <div class="preview-card">
+                    <img id="previewImage" src="" alt="Thumbnail do vídeo" referrerpolicy="no-referrer">
+                    <div class="preview-info">
+                        <h3 id="previewTitle"></h3>
+                        <span id="previewDuration"></span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <footer>
+            <p>&copy; 2026 Lucas Miranda. Todos os direitos reservados.</p>
+        </footer>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
