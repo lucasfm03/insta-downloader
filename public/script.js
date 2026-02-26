@@ -3,16 +3,30 @@ const previewContainer = document.getElementById('previewContainer');
 const previewImage = document.getElementById('previewImage');
 const previewTitle = document.getElementById('previewTitle');
 const previewDuration = document.getElementById('previewDuration');
+const platformRadios = document.getElementsByName('platform');
 
 let debounceTimer;
-
 let lastThumbUrl = '';
+
+// Função para detectar plataforma baseada na URL
+function detectPlatform(url) {
+    if (url.includes('instagram.com/')) return 'instagram';
+    if (url.includes('tiktok.com/')) return 'tiktok';
+    if (url.includes('youtube.com/') || url.includes('youtu.be/')) return 'youtube';
+    return null;
+}
 
 urlInput.addEventListener('input', () => {
     clearTimeout(debounceTimer);
     const url = urlInput.value.trim();
+    const detected = detectPlatform(url);
 
-    if (url.includes('instagram.com/')) {
+    if (detected) {
+        // Seleciona o rádio correspondente automaticamente
+        for (const radio of platformRadios) {
+            if (radio.value === detected) radio.checked = true;
+        }
+
         debounceTimer = setTimeout(async () => {
             try {
                 const response = await fetch('/preview', {
@@ -24,10 +38,9 @@ urlInput.addEventListener('input', () => {
                 if (response.ok) {
                     const data = await response.json();
 
-                    // Só atualiza se for uma imagem diferente para evitar "piscar" a tela
                     if (data.thumbnail && data.thumbnail !== lastThumbUrl) {
                         lastThumbUrl = data.thumbnail;
-                        // Usamos o proxy do servidor para carregar a imagem com segurança
+                        // Usamos o proxy do servidor para carregar a imagem com segurança (evita CORS)
                         previewImage.src = `/proxy-thumb?url=${encodeURIComponent(data.thumbnail)}`;
 
                         previewImage.onerror = () => {
@@ -41,12 +54,10 @@ urlInput.addEventListener('input', () => {
                     previewDuration.textContent = data.duration ? `Duração: ${data.duration}` : '';
                     previewContainer.style.display = 'block';
                 } else {
-                    // If response is not ok, hide the preview container
                     previewContainer.style.display = 'none';
                 }
             } catch (error) {
                 console.error('Preview error:', error);
-                // Hide preview container on error
                 previewContainer.style.display = 'none';
             }
         }, 800);
@@ -59,7 +70,6 @@ urlInput.addEventListener('input', () => {
 document.getElementById('downloadForm').addEventListener('submit', async (e) => {
     e.preventDefault();
 
-    // const urlInput = document.getElementById('videoUrl'); // Moved to global scope
     const downloadBtn = document.getElementById('downloadBtn');
     const statusMessage = document.getElementById('statusMessage');
     const btnText = downloadBtn.querySelector('.btn-text');
@@ -99,11 +109,16 @@ document.getElementById('downloadForm').addEventListener('submit', async (e) => 
         a.style.display = 'none';
         a.href = downloadUrl;
 
-        // Extract filename if possible or use default
+        // Extract filename from header or use default
         const contentDisposition = response.headers.get('Content-Disposition');
-        let filename = 'video_instagram.mp4';
+        let filename = 'video_download.mp4';
+
+        const detected = detectPlatform(url) || 'video';
+        filename = `${detected}_video_${Date.now()}.mp4`;
+
         if (contentDisposition && contentDisposition.includes('filename=')) {
-            filename = contentDisposition.split('filename=')[1].replace(/"/g, '');
+            const match = contentDisposition.match(/filename="?([^"]+)"?/);
+            if (match) filename = match[1];
         }
 
         a.download = filename;
